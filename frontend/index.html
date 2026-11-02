@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Smart Road Damage Detection & Complaint System</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div id="toast-container"></div>
+
+<!-- ============================= AUTH SCREEN ============================= -->
+<div id="auth-screen" class="auth-screen">
+  <div class="auth-card">
+    <h1>🛣️ Smart Road Damage Detection</h1>
+    <p class="tagline">Detect → Report → Track → Repair</p>
+    <p class="demo-badge">DEMO MODE — mock AI detection, no real government integration</p>
+
+    <div class="auth-tabs">
+      <button class="tab-btn active" data-tab="login">Login</button>
+      <button class="tab-btn" data-tab="register">Register (Citizen)</button>
+    </div>
+
+    <form id="login-form" class="auth-form">
+      <input type="email" id="login-email" placeholder="Email" required />
+      <input type="password" id="login-password" placeholder="Password" required />
+      <button type="submit">Login</button>
+    </form>
+
+    <form id="register-form" class="auth-form hidden">
+      <input type="text" id="reg-name" placeholder="Full name" required />
+      <input type="email" id="reg-email" placeholder="Email" required />
+      <input type="password" id="reg-password" placeholder="Password" required />
+      <button type="submit">Create account</button>
+    </form>
+
+    <div class="demo-accounts">
+      <p>Quick demo login:</p>
+      <button class="demo-btn" data-email="citizen@demo.local" data-pass="citizen123">Citizen</button>
+      <button class="demo-btn" data-email="authority@demo.local" data-pass="authority123">Authority</button>
+      <button class="demo-btn" data-email="admin@demo.local" data-pass="admin123">Admin</button>
+    </div>
+    <p id="auth-error" class="error-text"></p>
+  </div>
+</div>
+
+<!-- ============================== APP SHELL =============================== -->
+<div id="app-shell" class="app-shell hidden">
+  <header class="topbar">
+    <div class="brand">🛣️ Smart Road Damage System <span class="demo-pill">DEMO</span></div>
+    <div class="topbar-right">
+      <span id="user-badge"></span>
+      <button id="logout-btn">Logout</button>
+    </div>
+  </header>
+
+  <!-- ---------------------------- CITIZEN VIEW ---------------------------- -->
+  <main id="citizen-view" class="view hidden">
+    <div class="stats-row" id="citizen-stats"></div>
+
+    <section class="panel">
+      <h2>Report Road Damage</h2>
+      <form id="report-form" class="report-form">
+        <input type="file" id="report-image" accept="image/png,image/jpeg" required />
+        <div class="location-row">
+          <button type="button" id="capture-location">📍 Use my location</button>
+          <span id="location-display">No location set</span>
+        </div>
+        <button type="submit">Analyze &amp; Report</button>
+      </form>
+      <div id="report-result"></div>
+    </section>
+
+    <section class="panel">
+      <h2>My Complaints</h2>
+      <div id="citizen-complaints" class="complaint-list"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Nearby Road Damage</h2>
+      <div id="citizen-map" class="map-box"></div>
+    </section>
+  </main>
+
+  <!-- --------------------------- AUTHORITY VIEW --------------------------- -->
+  <main id="authority-view" class="view hidden">
+    <div class="stats-row" id="authority-stats"></div>
+
+    <section class="panel">
+      <h2>Complaints</h2>
+      <div class="filter-row">
+        <select id="filter-status"><option value="">All statuses</option></select>
+        <select id="filter-severity">
+          <option value="">All severities</option>
+          <option value="low">Low</option><option value="medium">Medium</option>
+          <option value="high">High</option><option value="critical">Critical</option>
+        </select>
+        <button id="apply-filters">Apply</button>
+      </div>
+      <div id="authority-complaints" class="complaint-list"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Map</h2>
+      <div id="authority-map" class="map-box"></div>
+    </section>
+
+    <section class="panel charts-panel">
+      <h2>Analytics</h2>
+      <div class="charts-grid">
+        <canvas id="chart-status"></canvas>
+        <canvas id="chart-severity"></canvas>
+        <canvas id="chart-type"></canvas>
+        <canvas id="chart-month"></canvas>
+      </div>
+    </section>
+  </main>
+
+  <!-- ----------------------------- ADMIN VIEW ------------------------------ -->
+  <main id="admin-view" class="view hidden">
+    <div class="stats-row" id="admin-stats"></div>
+
+    <section class="panel">
+      <h2>Authorities</h2>
+      <form id="authority-form" class="inline-form">
+        <input type="text" id="new-auth-name" placeholder="Authority name" required />
+        <input type="text" id="new-auth-city" placeholder="City" required />
+        <input type="text" id="new-auth-category" placeholder="Category (optional)" />
+        <button type="submit">Add Authority</button>
+      </form>
+      <table class="data-table" id="authorities-table">
+        <thead><tr><th>Name</th><th>City</th><th>Category</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Users</h2>
+      <table class="data-table" id="users-table">
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </main>
+</div>
+
+<!-- Status update modal (authority) -->
+<div id="status-modal" class="modal hidden">
+  <div class="modal-card">
+    <h3>Update Complaint Status</h3>
+    <select id="modal-status"></select>
+    <textarea id="modal-remarks" placeholder="Remarks (optional)"></textarea>
+    <div class="modal-actions">
+      <button id="modal-cancel">Cancel</button>
+      <button id="modal-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
